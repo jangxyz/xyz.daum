@@ -1,0 +1,113 @@
+
+<html>  
+<head>
+<title>Daum 카페</title>
+<meta http-equiv="Content-Type" content="text/html; charset=euc-kr">
+
+<script language="javascript">
+	document.domain="daum.net";
+</script>
+
+<script src="http://s1.daumcdn.net/cafecj/cafeon/jquery-1.2.1.pack.js"></script>
+<script src="http://s1.daumcdn.net/cafecj/cafeon2009/21/cafeon2009.js"></script>
+<script src="http://cafe.daum.net/_js/checknotice.js"></script>
+
+<script language="javascript">
+	var notice_cnt = 0;
+	var webmemo_cnt = 0;
+	var webmemo_new = false;
+	var is_webmemo_load = false;
+	var hanmail_cnt = 0;
+	var is_hanmail_load = false;
+	var my_alimi = 0;
+	var exige_autosave_load = 0;
+	var power_autosave_load = 0;
+    var personal_area_on = 0;
+    var personal_area_load = 0;
+    var comment_area_fold = 0;
+	var flag=false;
+	var clean = "";
+
+	function cleanPersonalArea(arg){
+		if(clean != arg){
+			notice_cnt = 0;
+			webmemo_cnt = 0;
+			webmemo_new = false;
+			is_webmemo_load = false;
+			hanmail_cnt = 0;
+			is_hanmail_load = false;
+			my_alimi = 0;
+			exige_autosave_load = 0;
+			power_autosave_load = 0;
+			personal_area_on = 0;
+			personal_area_load = 0;
+			comment_area_fold = 0;
+			flag = false;
+			clean = arg;
+		}
+	}
+
+	function deflag() {
+		status="";
+		flag=false;
+	}
+
+	function checkLocation() {
+		if (flag) {
+			try {
+				if(frames[1].document.domain == "daum.net"){
+					return;
+				}
+			} catch (e) {
+				status="";
+				flag=false;
+				frames[1].location.href="http://cafe986.daum.net/bad_rd.html?grpid=ccJT";
+			}
+		}
+	}
+
+	if ((navigator.userAgent.indexOf("MSIE") != -1 && parseInt(navigator.appVersion) >= 4)) {
+    	setInterval("checkLocation()", 3000);
+	}
+	
+	var src;
+	
+	function check_redirect() {
+		try {
+			var down = document.getElementById("down");
+			if (down != null && src != null) {
+				down.src = src;
+			} else {
+				window.setTimeout(check_redirect, 100);
+			}
+		} catch (e) {}
+	}
+
+	preinit('cafe986');
+	window.setTimeout(check_redirect, 10);
+
+	function disconnectedCafeon() {
+		try {
+			cafeonManager.logoutCafeon();
+		} catch(e) {}
+	}
+
+	var grpidForCafeon = "ccJT";
+</script>
+
+</head>
+<frameset rows="0%,0%,100%,0%,0%" border="0" onUnload="disconnectedCafeon();">
+	<frame name="bgm_hdn" id="bgm_hdn" src="http://cafe.daum.net/_cache/120508/bgm_rerun_hdn.html" width="100%" height="100%" frameborder="0" marginheight="0" marginwidth="0" title="배경음악">
+	<frame name="visit_member" id="visit_member" src="http://cafe986.daum.net/_c21_/visit_member_hdn?grpid=ccJT" width="100%" height="100%" frameborder="0" marginheight="0" marginwidth="0" title="방문수">
+	<frame name="down" id="down" src="http://cafe986.daum.net/_c21_/home?grpid=ccJT" width="100%" height="100%" frameborder="0" marginwidth="0" marginheight="0" title="카페 메인 프레임">
+	<frame name="cafeon2009" id="cafeon2009" src="http://cafe.daum.net/_cafeon/html/5/cafeon2009.html" width="0" height="0" frameborder="0" marginheight="0" marginwidth="0" title="카페온2009">
+	<frame name="fr_autosave" id="fr_autosave" src="http://cafe.daum.net/_autosave/autosave.html" width="0" height="0" frameborder="0" marginheight="0" marginwidth="0" title="자동저장">
+</frameset>
+
+<noframes>
+	<body>
+		<p>이 페이지를 보려면, 프레임을 볼 수 있는 브라우저가 필요합니다.</p>
+	</body>
+</noframes>
+
+</html>
