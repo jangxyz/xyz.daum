@@ -3,6 +3,8 @@
 
 import re
 from collections import namedtuple
+import lxml.html
+from datetime import datetime
 
 from util import *
 
@@ -103,6 +105,92 @@ def parse_board_info_from_sidebar(url):
     ) for t in result]
 
 
+def parse_article_album_list(url, text=None):
+    ''' parse article album list and result list of article information as a tuple:
+        (article_num, title, post_date, author, path, url)
+    '''
+    _type = namedtuple('BriefArticleInfo', 
+        'article_num title post_date author path url'.split())
+
+    ARTICLE_LIST_START_MARK = '''<div class="albumListBox">'''
+    ARTICLE_LIST_END_MARK   = '''<!-- end albumListBox -->'''
+
+    # fetch
+    if text is None:
+        text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+
+    if not(ARTICLE_LIST_START_MARK in text and ARTICLE_LIST_END_MARK in text):
+        raise Exception("parse error")
+    text = text[ text.index(ARTICLE_LIST_START_MARK): text.index(ARTICLE_LIST_END_MARK) ]
+
+    ARTICLE_PATTERN = re.compile(u'''
+        <li[^>]*>\s*
+            <dl>
+            .*?
+            <dd[ ]class="subject">\s*
+                <a[ ][^>]*href="(?P<path>[^"]*)"[^>]*>\s*       # path
+                (?P<title>[^<]*)\s*                             # title
+                </a>\s*
+                .*?
+            </dd>\s*
+            <dd[ ]class="txt_sub[ ]p11">번호\s*
+            <span[ ]class="num">(?P<article_num>[0-9]+)</span>  # article_num
+            .*?
+            <span[ ]class="num">(?P<post_date>[^<]*)</span>\s*  # post_date
+            </dd>
+            .*?
+            <dd[ ]class="txt_sub[ ]nick[ ]p11">\s*
+                <a[^>]*>(?P<author>[^<]*)</a>\s*                # author
+            </dd>
+            .*?
+            </dl>
+            .*?
+        </li>
+    ''', re.X | re.S)
+
+    result = []
+    for article in text.split('</li>')[:-1]:
+        match = ARTICLE_PATTERN.search(article + '</li>')
+        if match:
+            # (article_num, title, post_date, author, path)
+            d = match.groupdict()
+            t = (
+                int(d['article_num']), 
+                d['title'].strip(), 
+                d['post_date'], 
+                d['author'].strip(), 
+                d['path'],
+                get_domain(url, d['path']),
+            )
+            result.append(_type(*t))
+
+    return result
+
+
+def get_article_num_from_url(url):
+    return int(url.rsplit('/', 1)[-1])
+
+
+def parse_comments_from_article_album_view(url):
+    CSS_SELECTOR = '.commentBox .commentDiv .commentPagingDiv .comment_pos'
+
+    # inner url
+    parse_result = urlparse.urlparse(url)
+    if parse_result.netloc == 'cafe.daum.net':
+        url = parse_cafe_inner_url_from_official(url)
+
+    htmlstring = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+    html = lxml.html.fromstring(htmlstring)
+
+    comments = html.cssselect(CSS_SELECTOR)
+    comments = [Comment(
+        nickname=c.cssselect('.id_admin span a')[0].text.strip(),
+        content =c.cssselect('.comment_contents')[0].text.strip(),
+        date    =c.cssselect('.comment_date')[0].text.strip(),
+    ) for c in comments]
+    return comments
+
+
 class Cafe:
     def __init__(self, domain):
         self.domain = domain
@@ -117,20 +205,56 @@ class Cafe:
             board_info_list = parse_board_info_from_sidebar(sidebar_url)
             # (category, id, path, title, content, url)
 
-            self.__boards = [Board(b.content, b.url) for b in board_info_list]
+            self.__boards = [Board(name=b.content, url=b.url) for b in board_info_list]
 
         return self.__boards
 
 
 class Board:
-    def __init__(self, name, url):
-        self.name = name.strip()
-        self.url  = url
+    def __init__(self, url, name=None):
+        if name:
+            self.name = name.strip()
+
+        self.url = url
+        self.__articles = None
 
 
     @property
     def articles(self):
-        return []
+        if self.__articles is None:
+            self.__articles = parse_article_album_list(self.url)
+        return self.__articles
+
+
+class Article:
+    def __init__(self, url, title=None):
+        self.url = url
+        if title:
+            self.title = title.strip()
+        self.__comments = None
+
+    @property
+    def comments(self):
+        if self.__comments is None:
+            self.__comments = parse_comments_from_article_album_view(self.url)
+        return self.__comments
+
+
+class Comment:
+    def __init__(self, nickname, content, date):
+        self.nickname = nickname
+        self.content = content
+        self.raw_date = date
+        self.__date = None
+
+    @property
+    def date(self):
+        '''12.07.05. 10:21'''
+        if self.__date is None:
+            self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
+        return self.__date
+
+
 
 
 # vim: sts=4 et
