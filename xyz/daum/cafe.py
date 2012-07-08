@@ -10,45 +10,56 @@ from util import *
 
 
 def parse_cafe_inner_url_from_official(url):
-    ''' parse cafe official url and return real url 
+    '''Parse cafe official url and return real url.
     
+	<frame name="down" id="down" src="http://cafe986.daum.net/_c21_/home?grpid=ccJT" width="100%" height="100%" frameborder="0" marginwidth="0" marginheight="0" title="카페 메인 프레임">
     '''
-    CAFE_HOME_PATTERN = re.compile(u'''
-        # get src of frame#down
-        <frame [^>]*
-            (
-                (id="down" [^>]*src="([^"]*)")
-                |
-                (src="([^"]*)" [^>]*id="down")
-            )
-        [^>]*>
-    ''', re.S | re.X)
+    #CAFE_HOME_PATTERN = re.compile(u'''
+    #    # get src of frame#down
+    #    <frame [^>]*
+    #        (
+    #            (id="down" [^>]*src="([^"]*)")
+    #            |
+    #            (src="([^"]*)" [^>]*id="down")
+    #        )
+    #    [^>]*>
+    #''', re.S | re.X)
 
     site1 = urlread(url, timeouts=ARTICLE_TIMEOUTS)
-    match = CAFE_HOME_PATTERN.search(site1)
-    if not match:
-        raise Exception("parse error")
-    url = match.group(3) or match.group(5)
+
+    #match = CAFE_HOME_PATTERN.search(site1)
+    #if not match:
+    #    raise Exception("parse error")
+    #url = match.group(3) or match.group(5)
+    html = lxml.html.fromstring(site1)
+    frame = html.cssselect('frame#down')[0]
+    url = frame.get('src')
+
     return url
 
 def parse_sidebar_menu_url_from_cafe_main(url):
     ''' parse cafe main source and return url for cafe sidebar menu '''
-    CAFE_SIDEBAR_PATTERN = re.compile(u'''
-        <iframe 
-            [^>]*
-            id="leftmenu" 
-            [^>]*
-            src="([^"]*)"
-            [^>]*
-        >
-    ''', re.S | re.X)
+    #CAFE_SIDEBAR_PATTERN = re.compile(u'''
+    #    <iframe 
+    #        [^>]*
+    #        id="leftmenu" 
+    #        [^>]*
+    #        src="([^"]*)"
+    #        [^>]*
+    #    >
+    #''', re.S | re.X)
 
     text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
-    match = CAFE_SIDEBAR_PATTERN.search(text)
-    if not match:
-        raise Exception("parse error")
+    #match = CAFE_SIDEBAR_PATTERN.search(text)
+    #if not match:
+    #    raise Exception("parse error")
 
-    path = match.group(1)
+    #path = match.group(1)
+
+    html = lxml.html.fromstring(text)
+    frame = html.xpath('//iframe[@id="leftmenu"]')[0] # cssselect didn't work.
+    path = frame.get('src')
+
     sidebar_url = get_domain(url, path)
     return sidebar_url
 
@@ -68,41 +79,55 @@ def parse_board_info_from_sidebar(url):
     '''
     _type = namedtuple('BoardInfo', 'category id path title content url'.split())
 
-    BOARD_PATTERN = re.compile(u'''
-        <li [^>]*                               # LI
-            class="(?P<category>icon_[^"]*)\s*" # class attribute
-        >
-            \s*
-            <a                                  # A
-                [^>]*
-                id="(?P<id>[^"]*)"              # id attribute
-                [^>]*
-                href="(?P<path>[^"]*)"          # href attribute
-                [^>]*
-                title="(?P<title>[^"]*)"        # title attribute
-                [^>]*
-            >
-                (?P<content>[^<]*)              # text node under A
-            </a>
-            \s*
 
-            (                                   # optional new-post image
-                <img[^?]*>
-            )?
-            \s*
-        </li>
-    ''', re.X | re.S)
+    #BOARD_PATTERN = re.compile(u'''
+    #    <li [^>]*                               # LI
+    #        class="(?P<category>icon_[^"]*)\s*" # class attribute
+    #    >
+    #        \s*
+    #        <a                                  # A
+    #            [^>]*
+    #            id="(?P<id>[^"]*)"              # id attribute
+    #            [^>]*
+    #            href="(?P<path>[^"]*)"          # href attribute
+    #            [^>]*
+    #            title="(?P<title>[^"]*)"        # title attribute
+    #            [^>]*
+    #        >
+    #            (?P<content>[^<]*)              # text node under A
+    #        </a>
+    #        \s*
+
+    #        (                                   # optional new-post image
+    #            <img[^?]*>
+    #        )?
+    #        \s*
+    #    </li>
+    #''', re.X | re.S)
 
     text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
-    result = BOARD_PATTERN.findall(text)
+    
+    #result = BOARD_PATTERN.findall(text)
+    #return [_type(
+    #    t[0].strip(),                # class
+    #    t[1],                        # id
+    #    unescape(t[2], repeat=True), # href
+    #    unescape(t[3], repeat=True), # title
+    #    t[4],                        # text
+    #    get_domain(url, t[2]),       # domain
+    #) for t in result]
+
+    html = lxml.html.fromstring(text)
+    boards = html.xpath('//li[starts-with(@class, "icon_")]')
+    boards = [(b,b.xpath('a')[0]) for b in boards]
     return [_type(
-        t[0].strip(),                # class
-        t[1],                        # id
-        unescape(t[2], repeat=True), # href
-        unescape(t[3], repeat=True), # title
-        t[4],                        # text
-        get_domain(url, t[2]),       # domain
-    ) for t in result]
+        li.get('class'),
+        a.get('id'),
+        unescape(a.get('href')),
+        unescape(a.get('title')),
+        a.text,
+        get_domain(url, a.get('href')),
+    ) for (li,a) in boards]
 
 
 def parse_article_album_list(url, text=None):
@@ -112,59 +137,119 @@ def parse_article_album_list(url, text=None):
     _type = namedtuple('BriefArticleInfo', 
         'article_num title post_date author path url'.split())
 
-    ARTICLE_LIST_START_MARK = '''<div class="albumListBox">'''
-    ARTICLE_LIST_END_MARK   = '''<!-- end albumListBox -->'''
+    #ARTICLE_LIST_START_MARK = '''<div class="albumListBox">'''
+    #ARTICLE_LIST_END_MARK   = '''<!-- end albumListBox -->'''
 
     # fetch
     if text is None:
         text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
 
-    if not(ARTICLE_LIST_START_MARK in text and ARTICLE_LIST_END_MARK in text):
-        raise Exception("parse error")
-    text = text[ text.index(ARTICLE_LIST_START_MARK): text.index(ARTICLE_LIST_END_MARK) ]
+    #if not(ARTICLE_LIST_START_MARK in text and ARTICLE_LIST_END_MARK in text):
+    #    raise Exception("parse error")
+    #text = text[ text.index(ARTICLE_LIST_START_MARK): text.index(ARTICLE_LIST_END_MARK) ]
 
-    ARTICLE_PATTERN = re.compile(u'''
-        <li[^>]*>\s*
-            <dl>
-            .*?
-            <dd[ ]class="subject">\s*
-                <a[ ][^>]*href="(?P<path>[^"]*)"[^>]*>\s*       # path
-                (?P<title>[^<]*)\s*                             # title
-                </a>\s*
-                .*?
-            </dd>\s*
-            <dd[ ]class="txt_sub[ ]p11">번호\s*
-            <span[ ]class="num">(?P<article_num>[0-9]+)</span>  # article_num
-            .*?
-            <span[ ]class="num">(?P<post_date>[^<]*)</span>\s*  # post_date
-            </dd>
-            .*?
-            <dd[ ]class="txt_sub[ ]nick[ ]p11">\s*
-                <a[^>]*>(?P<author>[^<]*)</a>\s*                # author
-            </dd>
-            .*?
-            </dl>
-            .*?
-        </li>
-    ''', re.X | re.S)
+    #ARTICLE_PATTERN = re.compile(u'''
+    #    <li[^>]*>\s*
+    #        <dl>
+    #        .*?
+    #        <dd[ ]class="subject">\s*
+    #            <a[ ][^>]*href="(?P<path>[^"]*)"[^>]*>\s*       # path
+    #            (?P<title>[^<]*)\s*                             # title
+    #            </a>\s*
+    #            .*?
+    #        </dd>\s*
+    #        <dd[ ]class="txt_sub[ ]p11">번호\s*
+    #        <span[ ]class="num">(?P<article_num>[0-9]+)</span>  # article_num
+    #        .*?
+    #        <span[ ]class="num">(?P<post_date>[^<]*)</span>\s*  # post_date
+    #        </dd>
+    #        .*?
+    #        <dd[ ]class="txt_sub[ ]nick[ ]p11">\s*
+    #            <a[^>]*>(?P<author>[^<]*)</a>\s*                # author
+    #        </dd>
+    #        .*?
+    #        </dl>
+    #        .*?
+    #    </li>
+    #''', re.X | re.S)
+
+    html = lxml.html.fromstring(text)
+    articles = html.cssselect('div.albumListBox li')
 
     result = []
-    for article in text.split('</li>')[:-1]:
-        match = ARTICLE_PATTERN.search(article + '</li>')
-        if match:
-            # (article_num, title, post_date, author, path)
-            d = match.groupdict()
-            t = (
-                int(d['article_num']), 
-                d['title'].strip(), 
-                d['post_date'], 
-                d['author'].strip(), 
-                d['path'],
-                get_domain(url, d['path']),
-            )
-            result.append(_type(*t))
+    #for article in text.split('</li>')[:-1]:
+    #    match = ARTICLE_PATTERN.search(article + '</li>')
+    #    if match:
+    #        # (article_num, title, post_date, author, path)
+    #        d = match.groupdict()
+    #        t = (
+    #            int(d['article_num']), 
+    #            d['title'].strip(), 
+    #            d['post_date'], 
+    #            d['author'].strip(), 
+    #            d['path'],
+    #            get_domain(url, d['path']),
+    #        )
+    #        result.append(_type(*t))
+
+    for a in articles:
+        subject = a.cssselect('dd.subject a')[0]
+        author  = a.cssselect('dd.nick a')[0]
+        article_num, post_date = a.cssselect('dd.txt_sub.p11 span.num')
+        result.append(_type(
+            int(article_num.text.strip()), 
+            subject.text.strip(),
+            post_date.text.strip(),
+            author.text.strip(),
+            subject.get('href'),
+            get_domain(url, subject.get('href')),
+        ))
 
     return result
+
+def parse_article_board_list(url, text=None):
+    '''
+    <tr>
+        <td class="num" nowrap="nowrap">4088</td>
+        <td class="headcate txt_sub" nowrap="nowrap">
+        </td>
+        <td class="subject">
+            <a href="/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013wzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4088&listnum=20">안녕하세요~</a>
+            <img src="http://i1.daumcdn.net/cafeimg/cf_img2/img_blank2.gif" width="8" height="12" alt="새글" class="icon_new" />								
+        </td>
+        <td class="nick">
+            <a href="javascript:;"  onclick="showSideView(this, 'A.BbQds8kns0', '', '\uBC15\uC120\uC601'); return false;">박선영</a>
+        </td>
+        <td class="date" nowrap="nowrap">12.07.08</td>
+        <td class="count" nowrap="nowrap">0</td>
+        <td class="recommend_cnt" nowrap="nowrap">0</td>
+    </tr>
+    '''
+    _type = namedtuple('BriefArticleInfo', 
+        'article_num title post_date author path url'.split())
+
+    # fetch
+    if text is None:
+        text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+    html = lxml.html.fromstring(text)
+
+    results = []
+    articles = html.cssselect('table.bbsList tbody tr')
+    for tr in articles:
+        article_num = tr.cssselect('td.num')[0]
+        subject = tr.cssselect('td.subject a')[0]
+        nick = tr.cssselect('td.nick a')[0]
+        date = tr.cssselect('td.date')[0]
+        results.append(_type(
+            int(article_num.text) if article_num.text else None,
+            subject.text_content().strip(),
+            date.text.strip(),
+            nick.text.strip(),
+            subject.get('href'),
+            get_domain(url, subject.get('href')),
+        ))
+    return results
+
 
 
 def get_article_num_from_url(url):
@@ -205,15 +290,27 @@ class Cafe:
             board_info_list = parse_board_info_from_sidebar(sidebar_url)
             # (category, id, path, title, content, url)
 
-            self.__boards = [Board(name=b.content, url=b.url) for b in board_info_list]
+            self.__boards = [Board(name=b.content, url=b.url, category=b.category) for b in board_info_list]
 
         return self.__boards
 
+    def board(self, *args, **kwargs):
+        boards = self.boards
+        if len(args) == 1 and callable(args[0]):
+            boards = [b for b in boards if args[0](b)]
+        for key,value in kwargs.items():
+            boards = [b for b in boards if getattr(b, key) == value]
+        if len(boards) > 1:
+            raise Exception("found more than 1 boards")
+        if len(boards) == 0:
+            return None
+        return boards[0]
+
 
 class Board:
-    def __init__(self, url, name=None):
-        if name:
-            self.name = name.strip()
+    def __init__(self, url, name=None, category=None):
+        self.name = name.strip() if name else name
+        self.category = category.strip() if category else category
 
         self.url = url
         self.__articles = None
@@ -222,7 +319,10 @@ class Board:
     @property
     def articles(self):
         if self.__articles is None:
-            self.__articles = parse_article_album_list(self.url)
+            if self.category == u'icon_phone':
+                self.__articles = parse_article_album_list(self.url)
+            else:
+                self.__articles = parse_article_board_list(self.url)
         return self.__articles
 
 
@@ -253,7 +353,6 @@ class Comment:
         if self.__date is None:
             self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
         return self.__date
-
 
 
 

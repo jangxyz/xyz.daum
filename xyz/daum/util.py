@@ -65,7 +65,8 @@ def get_domain(url, path=None):
     return domain
 
 def unescape(text, repeat=None):
-    ''' from http://effbot.org/zone/re-sub.htm#unescape-html '''
+    '''robust unescape.
+    from http://effbot.org/zone/re-sub.htm#unescape-html '''
     def fixup(m):
         text = m.group(0)
         if text[:2] == "&#":

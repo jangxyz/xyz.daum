@@ -37,11 +37,18 @@ from utils import *
 loveclimb_html = open('tests/mock/loveclimb.html').read()
 maininner_html = open('tests/mock/home_grpid_ccJT.html').read()
 bbsmenu_html   = open('tests/mock/bbs_menu_ajax_ccJT.html').read().decode('utf8')
+
 boardclubalbum_html   = open('tests/mock/board_clubalbum.html').read().decode('euckr')
+boardwelcome_html     = open('tests/mock/board_welcome.html').read().decode('euckr')
+boardrecent_html      = open('tests/mock/board_welcome.html').read().decode('euckr')
 articleclubalbum_html = open('tests/mock/article_clubalbum.html').read().decode('euckr')
+articlewelcome_html   = open('tests/mock/article_welcome.html').read().decode('euckr')
 
 CLUBALBUM_BOARD_URL   = 'http://cafe986.daum.net/_c21_/album_list?grpid=ccJT&fldid=_album'
 CLUBALBUM_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/album_read?grpid=ccJT&fldid=_album&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=001EWzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4744&edge=&listnum=15'
+WELCOME_BOARD_URL = 'http://cafe986.daum.net/_c21_/bbs_list?grpid=ccJT&fldid=9urS'
+WELCOME_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013ozzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4080&listnum=20'
+RECENT_BOARD_URL = 'http://cafe986.daum.net/_c21_/recent_bbs_list?grpid=ccJT&fldid=_rec'
 
 def urlread_side_effect(*args, **kwargs):
     url = args[0]
@@ -51,10 +58,11 @@ def urlread_side_effect(*args, **kwargs):
         return maininner_html
     elif url.startswith('http://cafe986.daum.net/_c21_/bbs_menu_ajax?grpid=ccJT'):
         return bbsmenu_html
-    elif url == CLUBALBUM_BOARD_URL:
-        return boardclubalbum_html
-    elif url == CLUBALBUM_ARTICLE_URL:
-        return articleclubalbum_html
+    elif url == CLUBALBUM_BOARD_URL:   return boardclubalbum_html
+    elif url == CLUBALBUM_ARTICLE_URL: return articleclubalbum_html
+    elif url == WELCOME_BOARD_URL:     return boardwelcome_html
+    elif url == WELCOME_ARTICLE_URL:   return articlewelcome_html
+    elif url == RECENT_BOARD_URL:      return boardrecent_html
 
 
 class CafeTestCase(unittest.TestCase):
@@ -112,6 +120,34 @@ class CafeTestCase(unittest.TestCase):
         called_urls = [c[0][0] for c in urlread_.call_args_list]
         nt.eq_(called_urls.count(cafe.url), 1)
 
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_get_single_board(self, urlread_):
+        cafe = Cafe('loveclimb')
+
+        # url
+        board = cafe.board(url=CLUBALBUM_BOARD_URL)
+        nt.eq_(board.url, CLUBALBUM_BOARD_URL)
+
+        # name
+        board = cafe.board(name=u"클럽앨범")
+        nt.eq_(board.name, u"클럽앨범")
+
+        # url and name
+        board = cafe.board(url=CLUBALBUM_BOARD_URL, name=u"클럽앨범")
+        nt.eq_(board.name, u"클럽앨범")
+        nt.eq_(board.url, CLUBALBUM_BOARD_URL)
+
+        # lambda
+        board = cafe.board(lambda b: b.name == u"클럽앨범")
+        nt.eq_(board.name, u"클럽앨범")
+
+        # None if none
+        board = cafe.board(name=u"NO SUCH BOARD NAME")
+        nt.assert_is_none(board)
+
+        # error if more than one
+        with nt.assert_raises(Exception):
+            board = cafe.board(lambda b: True)
 
 
 class CafeBoardsTestCase(unittest.TestCase):
@@ -121,11 +157,11 @@ class CafeBoardsTestCase(unittest.TestCase):
         board = [b for b in cafe.boards if b.name == u'클럽앨범'][0]
         nt.eq_(board.url, CLUBALBUM_BOARD_URL)
 
-    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
-    def test_called_baords_should_have_list_of_articles(self, urlread_):
-        cafe = Cafe('loveclimb')
-        board = [b for b in cafe.boards if b.name == u'클럽앨범'][0]
-        nt.assert_true(len(board.articles) >= 0)
+    #@mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    #def test_called_baords_should_have_list_of_articles(self, urlread_):
+    #    cafe = Cafe('loveclimb')
+    #    board = [b for b in cafe.boards if b.name == u'클럽앨범'][0]
+    #    nt.assert_true(len(board.articles) >= 0)
 
 class BoardTestCase(unittest.TestCase):
     def test_should_have_url(self):
@@ -159,13 +195,26 @@ class BoardArticlesTestCase(unittest.TestCase):
 
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_called_articles_should_have_url(self, urlread_):
-        board = Board(url=CLUBALBUM_BOARD_URL)
+        board = Cafe('loveclimb').board(url=CLUBALBUM_BOARD_URL)
         article = [a for a in board.articles if a.title.startswith(u'0704 이대')][0]
         nt.eq_(article.url, CLUBALBUM_ARTICLE_URL)
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_parse_welcome_board_correctly(self, urlread_):
+        board = Cafe('loveclimb').board(url=WELCOME_BOARD_URL)
+        article = board.articles[6]
+        nt.eq_(article.url, 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013wzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4088&listnum=20')
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_parse_recent_board_correctly(self, urlread_):
+        board = Cafe('loveclimb').board(url=RECENT_BOARD_URL)
+        article = board.articles[3]
+        nt.eq_(article.url, 'http://cafe986.daum.net/_c21_/recent_bbs_read?grpid=ccJT&fldid=_album&page=1&prev_page=0&contentval=001Eazzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4748&regdt=20120708230149&listnum=20')
 
     ## TODO
     #def test_should_set_number_of_articles_to_fetch_per_page(self):
     #    pass
+
 
 
 class ArticleTestCase(unittest.TestCase):
@@ -188,7 +237,6 @@ class ArticleCommentsTestCase(unittest.TestCase):
             mock.call(CLUBALBUM_ARTICLE_URL, timeouts=mock.ANY),
         ])
 
-
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_calling_comments_runs_only_once(self, urlread_):
         # call boards twice
@@ -204,7 +252,7 @@ class ArticleCommentsTestCase(unittest.TestCase):
     def test_called_comments_should_have_nickname_date_and_content(self, urlread_):
         article = Article(url=CLUBALBUM_ARTICLE_URL)
 
-        # has 7 comments
+        # has comments
         nt.eq_(len(article.comments), 7)
 
         # parses correctly
@@ -212,6 +260,19 @@ class ArticleCommentsTestCase(unittest.TestCase):
         nt.eq_(comment.nickname, u'강혜경')
         nt.eq_(comment.date, datetime(2012, 7, 5, 10, 21)) # 12.07.05 10:21
         nt.eq_(comment.content, u'아애들 너무 이쁘네요~~~쌤하고 종신선배 너무 좋으셨겠어요!')
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_parse_welcome_board_correctly(self, urlread_):
+        article = Article(url=WELCOME_ARTICLE_URL)
+
+        # has comments
+        nt.eq_(len(article.comments), 2)
+
+        # parses correctly
+        comment = [c for c in article.comments][0]
+        nt.eq_(comment.nickname, u'도초강(강세원)')
+        nt.eq_(comment.date, datetime(2012, 7, 7, 23, 24))
+        nt.eq_(comment.content, u'현재 주말반은 마감이 된 상태이구요. 8월반은 7월 23일 저녂쯤  모집 공지 올라갑니다. 토, 일 이틀간 수업을 다 들으실 분만 가능합니다. 이틀 중 하루만 듣는다고해서 가격적 혜택을 드리진 않습니다. ^^')
 
 
 #class CommentsTestCase(unittest.TestCase):
