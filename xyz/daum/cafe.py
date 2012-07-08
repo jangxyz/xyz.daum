@@ -207,6 +207,52 @@ def parse_article_album_list(url, text=None):
 
     return result
 
+def parse_article_recent_list(url, text=None):
+    '''
+    <tr>
+        <td class="num" nowrap="nowrap">4088</td>
+        <td class="headcate txt_sub" nowrap="nowrap">
+        </td>
+        <td class="subject">
+            <a href="/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013wzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4088&listnum=20">안녕하세요~</a>
+            <img src="http://i1.daumcdn.net/cafeimg/cf_img2/img_blank2.gif" width="8" height="12" alt="새글" class="icon_new" />								
+        </td>
+        <td class="nick">
+            <a href="javascript:;"  onclick="showSideView(this, 'A.BbQds8kns0', '', '\uBC15\uC120\uC601'); return false;">박선영</a>
+        </td>
+        <td class="date" nowrap="nowrap">12.07.08</td>
+        <td class="count" nowrap="nowrap">0</td>
+        <td class="recommend_cnt" nowrap="nowrap">0</td>
+    </tr>
+    '''
+    _type = namedtuple('BriefArticleInfo', 
+        'article_num title post_date author path url'.split())
+
+    # fetch
+    if text is None:
+        text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+    html = lxml.html.fromstring(text)
+
+    results = []
+    articles = html.cssselect('table.bbsList tbody tr')
+    for tr in articles:
+        subject = tr.cssselect('td.subject a')[0]
+        path = subject.get('href')
+        nick = tr.cssselect('td.nick a')[0]
+        date = tr.cssselect('td.date')[0]
+        parsed = urlparse.urlparse(path)
+        article_num = urlparse.parse_qs(parsed.query)['datanum'][0]
+        results.append(_type(
+            int(article_num),
+            subject.text_content().strip(),
+            date.text.strip(),
+            nick.text.strip(),
+            path,
+            get_domain(url, path),
+        ))
+    return results
+
+
 def parse_article_board_list(url, text=None):
     '''
     <tr>
@@ -236,17 +282,19 @@ def parse_article_board_list(url, text=None):
     results = []
     articles = html.cssselect('table.bbsList tbody tr')
     for tr in articles:
-        article_num = tr.cssselect('td.num')[0]
         subject = tr.cssselect('td.subject a')[0]
+        path = subject.get('href')
         nick = tr.cssselect('td.nick a')[0]
         date = tr.cssselect('td.date')[0]
+        parsed = urlparse.urlparse(path)
+        article_num = urlparse.parse_qs(parsed.query)['datanum'][0]
         results.append(_type(
-            int(article_num.text) if article_num.text else None,
+            int(article_num),
             subject.text_content().strip(),
             date.text.strip(),
             nick.text.strip(),
-            subject.get('href'),
-            get_domain(url, subject.get('href')),
+            path,
+            get_domain(url, path),
         ))
     return results
 
@@ -319,10 +367,15 @@ class Board:
     @property
     def articles(self):
         if self.__articles is None:
-            if self.category == u'icon_phone':
+            #if self.name:
+            #    print self.name.encode('utf8'), self.category
+            if self.category == 'icon_phone':
                 self.__articles = parse_article_album_list(self.url)
+            elif self.category == 'icon_recent':
+                self.__articles = parse_article_recent_list(self.url)
             else:
                 self.__articles = parse_article_board_list(self.url)
+            self.__articles = [Article(a.url, a.title) for a in self.__articles]
         return self.__articles
 
 

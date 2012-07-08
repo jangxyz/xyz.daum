@@ -40,15 +40,15 @@ bbsmenu_html   = open('tests/mock/bbs_menu_ajax_ccJT.html').read().decode('utf8'
 
 boardclubalbum_html   = open('tests/mock/board_clubalbum.html').read().decode('euckr')
 boardwelcome_html     = open('tests/mock/board_welcome.html').read().decode('euckr')
-boardrecent_html      = open('tests/mock/board_welcome.html').read().decode('euckr')
+boardrecent_html      = open('tests/mock/board_recent.html').read().decode('euckr')
 articleclubalbum_html = open('tests/mock/article_clubalbum.html').read().decode('euckr')
 articlewelcome_html   = open('tests/mock/article_welcome.html').read().decode('euckr')
 
 CLUBALBUM_BOARD_URL   = 'http://cafe986.daum.net/_c21_/album_list?grpid=ccJT&fldid=_album'
 CLUBALBUM_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/album_read?grpid=ccJT&fldid=_album&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=001EWzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4744&edge=&listnum=15'
-WELCOME_BOARD_URL = 'http://cafe986.daum.net/_c21_/bbs_list?grpid=ccJT&fldid=9urS'
+WELCOME_BOARD_URL   = 'http://cafe986.daum.net/_c21_/bbs_list?grpid=ccJT&fldid=9urS'
 WELCOME_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013ozzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4080&listnum=20'
-RECENT_BOARD_URL = 'http://cafe986.daum.net/_c21_/recent_bbs_list?grpid=ccJT&fldid=_rec'
+RECENT_BOARD_URL    = 'http://cafe986.daum.net/_c21_/recent_bbs_list?grpid=ccJT&fldid=_rec'
 
 def urlread_side_effect(*args, **kwargs):
     url = args[0]
