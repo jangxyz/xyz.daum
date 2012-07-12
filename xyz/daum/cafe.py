@@ -131,71 +131,28 @@ def parse_board_info_from_sidebar(url):
 
 
 def parse_article_album_list(url, text=None):
-    ''' parse article album list and result list of article information as a tuple:
+    ''' parse article phone list and result list of article information as a tuple:
         (article_num, title, post_date, author, path, url)
     '''
     _type = namedtuple('BriefArticleInfo', 
         'article_num title post_date author path url'.split())
 
-    #ARTICLE_LIST_START_MARK = '''<div class="albumListBox">'''
-    #ARTICLE_LIST_END_MARK   = '''<!-- end albumListBox -->'''
-
     # fetch
     if text is None:
         text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
 
-    #if not(ARTICLE_LIST_START_MARK in text and ARTICLE_LIST_END_MARK in text):
-    #    raise Exception("parse error")
-    #text = text[ text.index(ARTICLE_LIST_START_MARK): text.index(ARTICLE_LIST_END_MARK) ]
-
-    #ARTICLE_PATTERN = re.compile(u'''
-    #    <li[^>]*>\s*
-    #        <dl>
-    #        .*?
-    #        <dd[ ]class="subject">\s*
-    #            <a[ ][^>]*href="(?P<path>[^"]*)"[^>]*>\s*       # path
-    #            (?P<title>[^<]*)\s*                             # title
-    #            </a>\s*
-    #            .*?
-    #        </dd>\s*
-    #        <dd[ ]class="txt_sub[ ]p11">번호\s*
-    #        <span[ ]class="num">(?P<article_num>[0-9]+)</span>  # article_num
-    #        .*?
-    #        <span[ ]class="num">(?P<post_date>[^<]*)</span>\s*  # post_date
-    #        </dd>
-    #        .*?
-    #        <dd[ ]class="txt_sub[ ]nick[ ]p11">\s*
-    #            <a[^>]*>(?P<author>[^<]*)</a>\s*                # author
-    #        </dd>
-    #        .*?
-    #        </dl>
-    #        .*?
-    #    </li>
-    #''', re.X | re.S)
 
     html = lxml.html.fromstring(text)
     articles = html.cssselect('div.albumListBox li')
 
     result = []
-    #for article in text.split('</li>')[:-1]:
-    #    match = ARTICLE_PATTERN.search(article + '</li>')
-    #    if match:
-    #        # (article_num, title, post_date, author, path)
-    #        d = match.groupdict()
-    #        t = (
-    #            int(d['article_num']), 
-    #            d['title'].strip(), 
-    #            d['post_date'], 
-    #            d['author'].strip(), 
-    #            d['path'],
-    #            get_domain(url, d['path']),
-    #        )
-    #        result.append(_type(*t))
+    for li in articles:
+        if li.cssselect('div.blank_thumb'):
+            continue
 
-    for a in articles:
-        subject = a.cssselect('dd.subject a')[0]
-        author  = a.cssselect('dd.nick a')[0]
-        article_num, post_date = a.cssselect('dd.txt_sub.p11 span.num')
+        subject = li.cssselect('dd.subject a')[0]
+        author  = li.cssselect('dd.nick a')[0]
+        article_num, post_date = li.cssselect('dd.txt_sub.p11 span.num')
         result.append(_type(
             int(article_num.text.strip()), 
             subject.text.strip(),
@@ -204,6 +161,7 @@ def parse_article_album_list(url, text=None):
             subject.get('href'),
             get_domain(url, subject.get('href')),
         ))
+
 
     return result
 
@@ -312,6 +270,7 @@ def parse_article_oneline_list(url, text=None):
             None,
         ))
     return results
+
 
 
 def parse_article_board_list(url, text=None):
@@ -428,7 +387,7 @@ class Board:
     @property
     def articles(self):
         if self.__articles is None:
-            if self.category == 'icon_phone':
+            if self.category in ('icon_phone', 'icon_album'):
                 self.__articles = parse_article_album_list(self.url)
                 self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
             elif self.category == 'icon_recent':
