@@ -41,6 +41,7 @@ bbsmenu_html   = open('tests/mock/bbs_menu_ajax_ccJT.html').read().decode('utf8'
 boardclubalbum_html   = open('tests/mock/board_clubalbum.html').read().decode('euckr')
 boardwelcome_html     = open('tests/mock/board_welcome.html').read().decode('euckr')
 boardrecent_html      = open('tests/mock/board_recent.html').read().decode('euckr')
+boardoneline_html     = open('tests/mock/board_oneline.html').read().decode('euckr')
 articleclubalbum_html = open('tests/mock/article_clubalbum.html').read().decode('euckr')
 articlewelcome_html   = open('tests/mock/article_welcome.html').read().decode('euckr')
 
@@ -49,6 +50,7 @@ CLUBALBUM_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/album_read?grpid=ccJT&fld
 WELCOME_BOARD_URL   = 'http://cafe986.daum.net/_c21_/bbs_list?grpid=ccJT&fldid=9urS'
 WELCOME_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013ozzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4080&listnum=20'
 RECENT_BOARD_URL    = 'http://cafe986.daum.net/_c21_/recent_bbs_list?grpid=ccJT&fldid=_rec'
+ONELINE_BOARD_URL   = 'http://cafe986.daum.net/_c21_/memo_list?grpid=ccJT&fldid=_memo'
 
 def urlread_side_effect(*args, **kwargs):
     url = args[0]
@@ -63,6 +65,7 @@ def urlread_side_effect(*args, **kwargs):
     elif url == WELCOME_BOARD_URL:     return boardwelcome_html
     elif url == WELCOME_ARTICLE_URL:   return articlewelcome_html
     elif url == RECENT_BOARD_URL:      return boardrecent_html
+    elif url == ONELINE_BOARD_URL:     return boardoneline_html
 
 
 class CafeTestCase(unittest.TestCase):
@@ -201,15 +204,25 @@ class BoardArticlesTestCase(unittest.TestCase):
 
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_should_parse_welcome_board_correctly(self, urlread_):
+        # welcome board
         board = Cafe('loveclimb').board(url=WELCOME_BOARD_URL)
         article = board.articles[6]
         nt.eq_(article.url, 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=&fldid=9urS&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=0013wzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4088&listnum=20')
 
-    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
-    def test_should_parse_recent_board_correctly(self, urlread_):
+        # recent board
         board = Cafe('loveclimb').board(url=RECENT_BOARD_URL)
         article = board.articles[3]
         nt.eq_(article.url, 'http://cafe986.daum.net/_c21_/recent_bbs_read?grpid=ccJT&fldid=_album&page=1&prev_page=0&contentval=001Eazzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4748&regdt=20120708230149&listnum=20')
+
+        # oneline board
+        board = Cafe('loveclimb').board(url=ONELINE_BOARD_URL)
+        nt.eq_(len(board.articles), 20)
+        article = board.articles[1]
+        nt.eq_(article.url, None)
+        nt.eq_(article.nickname, u"Ellen[이경민]")
+        nt.eq_(article.content,  u"7/15(일) 오후 2시에 강서구 등촌동 저희집에서 집들이 할께요! \n참석 가능하시면 댓글 달아주세요~ ㅎㅎ좀 멀긴하지만 맛있는 음식과 술이 기다리고 있을거예요~ ^^")
+        nt.eq_(article.title,  article.content)
+        nt.eq_(article.date, datetime(2012, 7, 11, 9, 45))
 
     ## TODO
     #def test_should_set_number_of_articles_to_fetch_per_page(self):

@@ -252,6 +252,67 @@ def parse_article_recent_list(url, text=None):
         ))
     return results
 
+def parse_article_oneline_list(url, text=None):
+    '''
+    XPATH: //div[@class="memo_list"]/form[@id="listForm"]/ul/dl
+
+    source:
+        <dl>
+            <dt class="profile_block reply_size" >
+            <div id="pimgWrap_0_6475" class="fl">
+                <img src="http://fimg.daum-img.net/tenth/img/y/t/i/u/ccJT/76/96c1c9-42087-d1.bmp" width="32" height="32" alt="" onmouseover="MemoFormController.showProfileLayer(this, 'pimg_0_6475');" onmouseout="MemoFormController.hideProfileLayer();">
+                <img id="pimg_0_6475" src="http://fimg.daum-img.net/tenth/img/y/t/i/u/ccJT/76/96c1c9-42087-d3.bmp" width="150" height="150" style="display: none;" alt="프로필 이미지" />
+            </div>
+            </dt>			
+            <dd class="content_block ">
+            <div id="memoViewer_0_6475" class="content_viewer ">
+                <p class="nickname">
+                &nbsp; <a href="#" onclick="showSideView(this, 'Zo6UMXQoclc0', '', 'Ellen[\uC774\uACBD\uBBFC]'); return false;" class="b">Ellen[이경민]</a>
+                &nbsp; <span class="txt_sub num">12.07.11. 09:45</span> &nbsp;
+                </p>
+                <div class="content_memo">
+                    7/15(일) 오후 2시에 강서구 등촌동 저희집에서 집들이 할께요! 
+                    <br />
+                    참석 가능하시면 댓글 달아주세요~ ㅎㅎ좀 멀긴하지만 맛있는 음식과 술이 기다리고 있을거예요~ ^^ 
+                    <img src="http://i1.daumcdn.net/cafeimg/cf_img2/img_blank2.gif" width="8" height="12" alt="새글" class="icon_new" />
+                    <b>								
+                        <a href="#" onclick="ReplyFormController.showReplyForm('0_6475'); return false;" class="txt_point" >
+                            [<span id="commentReplyCount_0_6475" class="txt_point">8</span>]
+                        </a>
+                    </b>						
+                </div>
+            </div><!-- content_viewer -->
+            <div id="memoModify_0_6475" class="content_modify"></div>
+            <div id="memoBtns_0_6475" class="memo_btns p11">
+                <a href="#" onclick="ReplyFormController.showReplyForm('0_6475'); return false;" class="p11">답글</a>																	</div>
+            </dd><!-- end content_block -->
+        </dl>
+    '''
+    _type = namedtuple('BriefArticleInfo', 
+        'article_num title post_date author path url'.split())
+
+    # fetch
+    if text is None:
+        text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+    html = lxml.html.fromstring(text)
+
+    results = []
+    articles = html.cssselect('div.memo_list form#listForm ul dl')
+    for dl in articles:
+        content = dl.cssselect('div.content_viewer div.content_memo')[0].xpath('child::text()')
+        nick = dl.cssselect('div.content_viewer p.nickname a')[0]
+        date = dl.cssselect('div.content_viewer p.nickname span.txt_sub.num')[0]
+        article_num = dl.cssselect('div.content_viewer')[0].attrib['id'].rsplit('_', 1)[-1]
+        results.append(_type(
+            int(article_num),
+            "\n".join(content).strip(),
+            date.text.strip(),
+            nick.text.strip(),
+            None,
+            None,
+        ))
+    return results
+
 
 def parse_article_board_list(url, text=None):
     '''
@@ -367,24 +428,37 @@ class Board:
     @property
     def articles(self):
         if self.__articles is None:
-            #if self.name:
-            #    print self.name.encode('utf8'), self.category
             if self.category == 'icon_phone':
                 self.__articles = parse_article_album_list(self.url)
+                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
             elif self.category == 'icon_recent':
                 self.__articles = parse_article_recent_list(self.url)
+                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
+            elif self.category == 'icon_memo':
+                self.__articles = parse_article_oneline_list(self.url)
+                self.__articles = [Article(a.url, a.title, a.post_date, a.author, a.title) for a in self.__articles]
             else:
                 self.__articles = parse_article_board_list(self.url)
-            self.__articles = [Article(a.url, a.title) for a in self.__articles]
+                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
         return self.__articles
 
 
 class Article:
-    def __init__(self, url, title=None):
+    def __init__(self, url, title=None, date=None, nickname=None, content=None):
         self.url = url
         if title:
             self.title = title.strip()
+        self.content = content
         self.__comments = None
+        self.nickname = nickname
+        self.raw_date = date
+        self.__date = None
+
+    @property
+    def date(self):
+        if self.__date is None:
+            self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
+        return self.__date
 
     @property
     def comments(self):
