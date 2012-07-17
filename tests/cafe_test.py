@@ -53,6 +53,7 @@ WELCOME_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/bbs_read?grpid=ccJT&mgrpid=
 RECENT_BOARD_URL    = 'http://cafe986.daum.net/_c21_/recent_bbs_list?grpid=ccJT&fldid=_rec'
 ONELINE_BOARD_URL   = 'http://cafe986.daum.net/_c21_/memo_list?grpid=ccJT&fldid=_memo'
 ALBUM_BOARD_URL     = 'http://cafe986.daum.net/_c21_/album_list?grpid=ccJT&fldid=6bUe'
+PIE_BOARD_URL       = 'http://cafe986.daum.net/_c21_/pie?grpid=ccJT&fldid=_pie'
 
 def urlread_side_effect(*args, **kwargs):
     url = args[0]
@@ -161,7 +162,16 @@ class CafeBoardsTestCase(unittest.TestCase):
     def test_called_boards_should_have_url(self, urlread_):
         cafe = Cafe('loveclimb')
         board = [b for b in cafe.boards if b.name == u'클럽앨범'][0]
+        #
         nt.eq_(board.url, CLUBALBUM_BOARD_URL)
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_called_boards_should_have_grpid_and_fldid(self, urlread_):
+        cafe = Cafe('loveclimb')
+        board = [b for b in cafe.boards if b.name == u'클럽앨범'][0]
+
+        nt.eq_(board.grpid, 'ccJT')
+        nt.eq_(board.fldid, '_album')
 
     #@mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     #def test_called_baords_should_have_list_of_articles(self, urlread_):
@@ -177,6 +187,14 @@ class BoardTestCase(unittest.TestCase):
         # only name: not ok
         with nt.assert_raises(Exception):
             Board(name='u클럽앨범')
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_have_grpid_and_fldid(self, urlread_):
+        board = Board(url=CLUBALBUM_BOARD_URL, category='icon_phone')
+
+        nt.eq_((board.grpid, board.fldid), ('ccJT', '_album'))
+
+
 
 class BoardArticlesTestCase(unittest.TestCase):
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
@@ -204,6 +222,14 @@ class BoardArticlesTestCase(unittest.TestCase):
         board = Cafe('loveclimb').board(url=CLUBALBUM_BOARD_URL)
         article = [a for a in board.articles if a.title.startswith(u'0704 이대')][0]
         nt.eq_(article.url, CLUBALBUM_ARTICLE_URL)
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_called_articles_should_have_grpid_and_fldid(self, urlread_):
+        board = Cafe('loveclimb').board(url=CLUBALBUM_BOARD_URL)
+        article = [a for a in board.articles if a.title.startswith(u'0704 이대')][0]
+
+        nt.eq_(article.grpid, 'ccJT')
+        nt.eq_(article.fldid, '_album')
 
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_should_parse_welcome_board_correctly(self, urlread_):

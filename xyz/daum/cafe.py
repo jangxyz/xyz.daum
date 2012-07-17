@@ -1,10 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
 
-import re
 from collections import namedtuple
-import lxml.html
 from datetime import datetime
+import urllib
+
+import lxml.html
 
 from util import *
 
@@ -77,57 +78,29 @@ def parse_board_info_from_sidebar(url):
             <li class="icon_phone "><a id="fldlink__album_624" href="/_c21_/album_list?grpid=ccJT&amp;fldid=_album" target="_parent" onclick="parent_().caller(this.href);return false;" title="&#53364;&#47101;&#50536;&#48276;">클럽앨범</a></li>
             <li class="icon_memo "><a id="fldlink__memo_525" href="/_c21_/memo_list?grpid=ccJT&amp;fldid=_memo" target="_parent" onclick="parent_().caller(this.href);return false;" title="&#51068;&#49345;&#51032; &#49692;&#44036;&#49692;&#44036; &#46496;&#50724;&#47476;&#45716; &#51105;&#45392;&#51060;&#45208;,&#44036;&#45800;&#54620; &#47700;&#49464;&#51648;&#47484; &#51201;&#50612;&#48372;&#49464;&#50836;!!">한 줄 메모장</a><img src="http://i1.daumcdn.net/cafeimg/cf_img2/img_blank2.gif" width="10" height="9" alt="new" class="icon_new" /></li> 
     '''
-    _type = namedtuple('BoardInfo', 'category id path title content url'.split())
-
-
-    #BOARD_PATTERN = re.compile(u'''
-    #    <li [^>]*                               # LI
-    #        class="(?P<category>icon_[^"]*)\s*" # class attribute
-    #    >
-    #        \s*
-    #        <a                                  # A
-    #            [^>]*
-    #            id="(?P<id>[^"]*)"              # id attribute
-    #            [^>]*
-    #            href="(?P<path>[^"]*)"          # href attribute
-    #            [^>]*
-    #            title="(?P<title>[^"]*)"        # title attribute
-    #            [^>]*
-    #        >
-    #            (?P<content>[^<]*)              # text node under A
-    #        </a>
-    #        \s*
-
-    #        (                                   # optional new-post image
-    #            <img[^?]*>
-    #        )?
-    #        \s*
-    #    </li>
-    #''', re.X | re.S)
+    _type = namedtuple('BoardInfo', 'category id path title content url fldid grpid'.split())
 
     text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
-    
-    #result = BOARD_PATTERN.findall(text)
-    #return [_type(
-    #    t[0].strip(),                # class
-    #    t[1],                        # id
-    #    unescape(t[2], repeat=True), # href
-    #    unescape(t[3], repeat=True), # title
-    #    t[4],                        # text
-    #    get_domain(url, t[2]),       # domain
-    #) for t in result]
 
     html = lxml.html.fromstring(text)
     boards = html.xpath('//li[starts-with(@class, "icon_")]')
     boards = [(b,b.xpath('a')[0]) for b in boards]
-    return [_type(
-        li.get('class'),
-        a.get('id'),
-        unescape(a.get('href')),
-        unescape(a.get('title')),
-        a.text,
-        get_domain(url, a.get('href')),
-    ) for (li,a) in boards]
+
+    def parse(li, a):
+        path = unescape(a.get('href'))
+        query_dict = urlparse.parse_qs(urllib.splitquery(path)[-1])
+        return _type(
+            li.get('class'),
+            a.get('id'),
+            path,
+            unescape(a.get('title')),
+            a.text,
+            get_domain(url, path),
+            query_dict.get('fldid', [None])[0],
+            query_dict.get('grpid', [None])[0],
+        )
+
+    return [parse(li,a) for (li,a) in boards]
 
 
 def parse_article_album_list(url, text=None):
@@ -135,7 +108,7 @@ def parse_article_album_list(url, text=None):
         (article_num, title, post_date, author, path, url)
     '''
     _type = namedtuple('BriefArticleInfo', 
-        'article_num title post_date author path url'.split())
+        'article_num title post_date author path url fldid grpid'.split())
 
     # fetch
     if text is None:
@@ -145,25 +118,26 @@ def parse_article_album_list(url, text=None):
     html = lxml.html.fromstring(text)
     articles = html.cssselect('div.albumListBox li')
 
-    result = []
-    for li in articles:
-        if li.cssselect('div.blank_thumb'):
-            continue
-
+    def _parse(li):
         subject = li.cssselect('dd.subject a')[0]
         author  = li.cssselect('dd.nick a')[0]
         article_num, post_date = li.cssselect('dd.txt_sub.p11 span.num')
-        result.append(_type(
+        href = subject.get('href')
+        path = unescape(href)
+        query_dict = urlparse.parse_qs(urllib.splitquery(path)[-1])
+        return _type(
             int(article_num.text.strip()), 
             subject.text.strip(),
             post_date.text.strip(),
             author.text.strip(),
-            subject.get('href'),
-            get_domain(url, subject.get('href')),
-        ))
+            href,
+            get_domain(url, href),
+            query_dict.get('fldid', [None])[0],
+            query_dict.get('grpid', [None])[0],
+        )
 
+    return [_parse(li) for li in articles if not li.cssselect('div.blank_thumb')]
 
-    return result
 
 def parse_article_recent_list(url, text=None):
     '''
@@ -358,11 +332,12 @@ class Cafe:
             board_info_list = parse_board_info_from_sidebar(sidebar_url)
             # (category, id, path, title, content, url)
 
-            self.__boards = [Board(name=b.content, url=b.url, category=b.category) for b in board_info_list]
+            self.__boards = [Board(name=b.content, url=b.url, category=b.category, fldid=b.fldid, grpid=b.grpid) for b in board_info_list]
 
         return self.__boards
 
     def board(self, *args, **kwargs):
+        '''find single board matching criteria. '''
         boards = self.boards
         if len(args) == 1 and callable(args[0]):
             boards = [b for b in boards if args[0](b)]
@@ -376,42 +351,64 @@ class Cafe:
 
 
 class Board:
-    def __init__(self, url, name=None, category=None):
+    def __init__(self, url, name=None, category=None, fldid=None, grpid=None):
         self.name = name.strip() if name else name
         self.category = category.strip() if category else category
 
         self.url = url
         self.__articles = None
 
+        self.__fldid = fldid
+        self.__grpid = grpid
+
+    @property
+    def fldid(self):
+        self.__fldid = self.__fldid  or self.articles[0].fldid
+        return self.__fldid
+
+    # TODO: directly parse page, instead of calling articles
+    @property
+    def grpid(self):
+        self.__grpid = self.__grpid or self.articles[0].grpid
+        return self.__grpid
+
+    def fetch(self):
+        if self.category in ('icon_phone', 'icon_album'):
+            articles = parse_article_album_list(self.url)
+            articles = [Article(a.url, a.title, a.post_date, fldid=a.fldid, grpid=a.grpid) for a in articles]
+        elif self.category == 'icon_recent':
+            articles = parse_article_recent_list(self.url)
+            articles = [Article(a.url, a.title, a.post_date) for a in articles]
+        elif self.category == 'icon_memo':
+            articles = parse_article_oneline_list(self.url)
+            articles = [Article(a.url, a.title, a.post_date, a.author, a.title) for a in articles]
+        else:
+            articles = parse_article_board_list(self.url)
+            articles = [Article(a.url, a.title, a.post_date) for a in articles]
+        self.__articles = articles
+        return articles
 
     @property
     def articles(self):
         if self.__articles is None:
-            if self.category in ('icon_phone', 'icon_album'):
-                self.__articles = parse_article_album_list(self.url)
-                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
-            elif self.category == 'icon_recent':
-                self.__articles = parse_article_recent_list(self.url)
-                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
-            elif self.category == 'icon_memo':
-                self.__articles = parse_article_oneline_list(self.url)
-                self.__articles = [Article(a.url, a.title, a.post_date, a.author, a.title) for a in self.__articles]
-            else:
-                self.__articles = parse_article_board_list(self.url)
-                self.__articles = [Article(a.url, a.title, a.post_date) for a in self.__articles]
+            self.fetch()
         return self.__articles
 
 
 class Article:
-    def __init__(self, url, title=None, date=None, nickname=None, content=None):
+    def __init__(self, url, title=None, date=None, nickname=None, content=None, fldid=None, grpid=None):
         self.url = url
         if title:
             self.title = title.strip()
         self.content = content
         self.__comments = None
         self.nickname = nickname
+
         self.raw_date = date
         self.__date = None
+
+        self.fldid = fldid
+        self.grpid = grpid
 
     @property
     def date(self):
