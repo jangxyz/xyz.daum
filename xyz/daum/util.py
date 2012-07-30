@@ -4,8 +4,35 @@ import httplib
 import urlparse
 import htmlentitydefs
 import re
+import datetime
+import time
 
 ARTICLE_TIMEOUTS = [15,30,60]
+
+RECENT_REQUESTS = []
+
+def delayed_request(url, data, timeout):
+    '''daum suspects an attack if request is too frequent. sleep.'''
+    global RECENT_REQUESTS
+
+    # check recent request time
+    if len(RECENT_REQUESTS) is 20:
+        dt = datetime.datetime.now() - RECENT_REQUESTS[0] 
+        if dt.seconds < 60:
+            print 'sleeping for', 60 - dt.seconds, '...', RECENT_REQUESTS
+            time.sleep(60 - dt.seconds)
+
+    req  = urllib2.Request(url)
+    response = urllib2.urlopen(req, data, timeout=timeout)
+
+    # update recent request time
+    RECENT_REQUESTS.append(datetime.datetime.now())
+    if len(RECENT_REQUESTS) > 20:
+        RECENT_REQUESTS.pop(0)
+
+    return response
+
+
 
 def urlopen(url, timeouts=None, data=None):
     '''request url open, retrying on timeout. '''
@@ -14,12 +41,12 @@ def urlopen(url, timeouts=None, data=None):
     last_exception = None
     for timeout in timeouts:
         try:
-            # make request
-            req  = urllib2.Request(url)
-            # send request
-            site = urllib2.urlopen(req, data, timeout=timeout)
-
-            return site
+            ## make request
+            #req  = urllib2.Request(url)
+            ## send request
+            #site = urllib2.urlopen(req, data, timeout=timeout)
+            #return site
+            return delayed_request(url, data, timeout=timeout)
 
         # retry on timeout
         except IOError as e:
