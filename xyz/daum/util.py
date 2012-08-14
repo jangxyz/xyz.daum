@@ -14,20 +14,22 @@ RECENT_REQUESTS = []
 def delayed_request(url, data, timeout):
     '''daum suspects an attack if request is too frequent. sleep.'''
     global RECENT_REQUESTS
+    AMOUNT = 45
+    PERIOD = 60 # seconds
 
     # check recent request time
-    if len(RECENT_REQUESTS) is 20:
+    if len(RECENT_REQUESTS) is AMOUNT:
         dt = datetime.datetime.now() - RECENT_REQUESTS[0] 
-        if dt.seconds < 60:
-            print 'sleeping for', 60 - dt.seconds, '...', RECENT_REQUESTS
-            time.sleep(60 - dt.seconds)
+        if dt.seconds < PERIOD:
+            print 'sleeping for', PERIOD - dt.seconds, '...'
+            time.sleep(PERIOD - dt.seconds)
 
     req  = urllib2.Request(url)
     response = urllib2.urlopen(req, data, timeout=timeout)
 
     # update recent request time
     RECENT_REQUESTS.append(datetime.datetime.now())
-    if len(RECENT_REQUESTS) > 20:
+    if len(RECENT_REQUESTS) > AMOUNT:
         RECENT_REQUESTS.pop(0)
 
     return response
