@@ -274,6 +274,21 @@ class ArticleTestCase(unittest.TestCase):
         with nt.assert_raises(Exception):
             Article(title=u'0704 이대')
 
+    def test_should_have_parent_board(self):
+        nt.ok_(False)
+
+    def test_date_should_return_either_datetime_or_date(self):
+        nt.ok_(False)
+
+    def test_is_equal_if_url_is_same(self):
+        a1 = Article(url='abc')
+        a2 = Article(url='abc')
+        a3 = Article(url='def')
+
+        nt.ok_(a1 == a2)
+        nt.eq_(a1 == a3, False)
+
+
 class ArticleCommentsTestCase(unittest.TestCase):
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_first_call_to_comments_calls_http_request(self, urlread_):

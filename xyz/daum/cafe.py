@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 
 from collections import namedtuple
-from datetime import datetime
+from datetime import datetime, date
 import urllib
 
 import lxml.html
@@ -375,16 +375,16 @@ class Board:
     def fetch(self):
         if self.category in ('icon_phone', 'icon_album'):
             articles = parse_article_album_list(self.url)
-            articles = [Article(a.url, a.title, a.post_date, fldid=a.fldid, grpid=a.grpid) for a in articles]
+            articles = [Article(a.url, a.title, a.post_date, a.author, fldid=a.fldid, grpid=a.grpid, board=self) for a in articles]
         elif self.category == 'icon_recent':
             articles = parse_article_recent_list(self.url)
-            articles = [Article(a.url, a.title, a.post_date) for a in articles]
+            articles = [Article(a.url, a.title, a.post_date, a.author, board=self) for a in articles]
         elif self.category == 'icon_memo':
             articles = parse_article_oneline_list(self.url)
-            articles = [Article(a.url, a.title, a.post_date, a.author, a.title) for a in articles]
+            articles = [Article(a.url, a.title, a.post_date, a.author, a.title, board=self) for a in articles]
         else:
             articles = parse_article_board_list(self.url)
-            articles = [Article(a.url, a.title, a.post_date) for a in articles]
+            articles = [Article(a.url, a.title, a.post_date, a.author, board=self) for a in articles]
         self.__articles = articles
         return articles
 
@@ -394,12 +394,16 @@ class Board:
             self.fetch()
         return self.__articles
 
+    def __repr__(self):
+        return u"<%(name)s>" % self.__dict__
+
 
 class Article:
-    def __init__(self, url, title=None, date=None, nickname=None, content=None, fldid=None, grpid=None):
+    def __init__(self, url, title=None, date=None, nickname=None, content=None, fldid=None, grpid=None, board=None):
         self.url = url
-        if title:
-            self.title = title.strip()
+        self.title = title
+        if self.title is not None:
+            self.title = self.title.strip()
         self.content = content
         self.__comments = None
         self.nickname = nickname
@@ -409,11 +413,18 @@ class Article:
 
         self.fldid = fldid
         self.grpid = grpid
+        self.board = board
 
     @property
     def date(self):
-        if self.__date is None:
-            self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
+        '''returns either datetime.datetime if fully fetched, or 
+        datetime.datetime instance if not.
+        '''
+        if self.__date is None or isinstance(self.__date, date):
+            try:
+                self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
+            except ValueError:
+                self.__date = datetime.strptime(self.raw_date, "%y.%m.%d").date()
         return self.__date
 
     @property
@@ -421,6 +432,17 @@ class Article:
         if self.__comments is None:
             self.__comments = parse_comments_from_article_album_view(self.url)
         return self.__comments
+
+    def __hash__(self):
+        return hash((self.url, self.fldid, self.grpid, self.raw_date, self.title, self.content, self.nickname))
+
+    def __repr__(self):
+        return "<%s>" % self.title.encode('utf8')
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return hash(self) == hash(other)
+        return False
 
 
 class Comment:
