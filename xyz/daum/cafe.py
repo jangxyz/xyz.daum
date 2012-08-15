@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 
 from collections import namedtuple
-from datetime import datetime, date
+from datetime import datetime
 import urllib
 import urlparse
 
@@ -299,7 +299,7 @@ def get_article_num_from_url(url):
     return int(url.rsplit('/', 1)[-1])
 
 
-def parse_comments_from_article_album_view(url):
+def parse_comments_from_article_album_view(url, text=None):
     CSS_SELECTOR = '.commentBox .commentDiv .commentPagingDiv .comment_pos'
 
     # inner url
@@ -307,13 +307,14 @@ def parse_comments_from_article_album_view(url):
     if parse_result.netloc == 'cafe.daum.net':
         url = parse_cafe_inner_url_from_official(url)
 
-    htmlstring = urlread(url, timeouts=ARTICLE_TIMEOUTS)
-    html = lxml.html.fromstring(htmlstring)
+    if text is None:
+        text = urlread(url, timeouts=ARTICLE_TIMEOUTS)
+    html = lxml.html.fromstring(text)
 
     comments = html.cssselect(CSS_SELECTOR)
     comments = [Comment(
         nickname=c.cssselect('.id_admin span a')[0].text.strip(),
-        content =c.cssselect('.comment_contents')[0].text.strip(),
+        content ="\n".join(c.cssselect('.comment_contents')[0].itertext()).strip(),
         date    =c.cssselect('.comment_date')[0].text.strip(),
     ) for c in comments]
     return comments
@@ -421,11 +422,16 @@ class Article:
         '''returns either datetime.datetime if fully fetched, or 
         datetime.datetime instance if not.
         '''
-        if self.__date is None or isinstance(self.__date, date):
+        if self.__date is None or not isinstance(self.__date, datetime):
             try:
                 self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
             except ValueError:
-                self.__date = datetime.strptime(self.raw_date, "%y.%m.%d").date()
+                try:
+                    self.__date = datetime.strptime(self.raw_date, "%y.%m.%d").date()
+                except ValueError:
+                    today = datetime.today().date()
+                    time  = datetime.strptime(self.raw_date, "%H:%M").time()
+                    self.__date = datetime.combine(today, time)
         return self.__date
 
     @property

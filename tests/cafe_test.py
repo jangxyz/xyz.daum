@@ -5,10 +5,10 @@ from nose import tools as nt
 import mock
 
 import urlparse
-from datetime import datetime
+from datetime import datetime, date
 #import urllib2
 
-from xyz.daum.cafe import Cafe, Board, Article
+from xyz.daum.cafe import Cafe, Board, Article, parse_comments_from_article_album_view
 from utils import *
 
 
@@ -280,8 +280,20 @@ class ArticleTestCase(unittest.TestCase):
         with nt.assert_raises(Exception):
             Article(title=u'0704 이대')
 
-    def test_date_should_return_either_datetime_or_date(self):
-        nt.ok_(False)
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_date_should_return_either_datetime_or_date(self, urlread_):
+        # datetime
+        a = Article(url=CLUBALBUM_ARTICLE_URL, date=u'12.08.14. 10:31')
+        nt.eq_(a.date, datetime(2012,8,14, 10,31))
+
+        # date
+        a = Article(url=CLUBALBUM_ARTICLE_URL, date=u'12.08.13')
+        nt.eq_(a.date, date(2012, 8, 13))
+
+        # today's datetime
+        today = datetime.today()
+        a = Article(url=CLUBALBUM_ARTICLE_URL, date=u'08:02')
+        nt.eq_(a.date, datetime(today.year,today.month,today.day, 8,2))
 
     def test_is_equal_if_url_is_same(self):
         a1 = Article(url='abc')
@@ -326,6 +338,17 @@ class ArticleCommentsTestCase(unittest.TestCase):
         nt.eq_(comment.nickname, u'강혜경')
         nt.eq_(comment.date, datetime(2012, 7, 5, 10, 21)) # 12.07.05 10:21
         nt.eq_(comment.content, u'아애들 너무 이쁘네요~~~쌤하고 종신선배 너무 좋으셨겠어요!')
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_parse_multiple_line_comments(self, urlread_):
+        html = articleclubalbum_html.replace(
+            u'아애들 너무 이쁘네요~~~쌤하고 종신선배 너무 좋으셨겠어요!', 
+            u'아애들<br>너무 이쁘네요~~~')
+        comments = parse_comments_from_article_album_view(url=CLUBALBUM_ARTICLE_URL, text=html)
+
+        # parses correctly
+        comment = comments[0]
+        nt.eq_(comment.content, u'아애들\n너무 이쁘네요~~~')
 
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_should_parse_welcome_board_correctly(self, urlread_):
