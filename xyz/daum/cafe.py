@@ -338,7 +338,7 @@ class Cafe:
 
         return self.__boards
 
-    def board(self, *args, **kwargs):
+    def find_board(self, *args, **kwargs):
         '''find single board matching criteria. '''
         boards = self.boards
         if len(args) == 1 and callable(args[0]):
@@ -473,7 +473,7 @@ class Comment:
     date = property(get_date)
 
     def __repr__(self):
-        return (u"<%s,%s,%s>" % (self.content, self.nickname, self.raw_date)).encode('utf8')
+        return (u"<%s,%s,%s>" % (self.content.replace("\n", "\\n"), self.nickname, self.raw_date)).encode('utf8')
 
 
 # vim: sts=4 et

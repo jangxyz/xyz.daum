@@ -133,29 +133,29 @@ class CafeTestCase(unittest.TestCase):
         cafe = Cafe('loveclimb')
 
         # url
-        board = cafe.board(url=CLUBALBUM_BOARD_URL)
+        board = cafe.find_board(url=CLUBALBUM_BOARD_URL)
         nt.eq_(board.url, CLUBALBUM_BOARD_URL)
 
         # name
-        board = cafe.board(name=u"클럽앨범")
+        board = cafe.find_board(name=u"클럽앨범")
         nt.eq_(board.name, u"클럽앨범")
 
         # url and name
-        board = cafe.board(url=CLUBALBUM_BOARD_URL, name=u"클럽앨범")
+        board = cafe.find_board(url=CLUBALBUM_BOARD_URL, name=u"클럽앨범")
         nt.eq_(board.name, u"클럽앨범")
         nt.eq_(board.url, CLUBALBUM_BOARD_URL)
 
         # lambda
-        board = cafe.board(lambda b: b.name == u"클럽앨범")
+        board = cafe.find_board(lambda b: b.name == u"클럽앨범")
         nt.eq_(board.name, u"클럽앨범")
 
         # None if none
-        board = cafe.board(name=u"NO SUCH BOARD NAME")
+        board = cafe.find_board(name=u"NO SUCH BOARD NAME")
         nt.assert_is_none(board)
 
         # error if more than one
         with nt.assert_raises(Exception):
-            board = cafe.board(lambda b: True)
+            board = cafe.find_board(lambda b: True)
 
 
 class CafeBoardsTestCase(unittest.TestCase):
