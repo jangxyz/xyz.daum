@@ -232,6 +232,13 @@ class BoardArticlesTestCase(unittest.TestCase):
         nt.eq_(article.fldid, '_album')
 
     @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
+    def test_should_have_parent_board(self, urlread_):
+        board = Cafe('loveclimb').board(url=CLUBALBUM_BOARD_URL)
+        article = [a for a in board.articles if a.title.startswith(u'0704 이대')][0]
+
+        nt.eq_(article.board, board)
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=urlread_side_effect)
     def test_should_parse_welcome_board_correctly(self, urlread_):
         # welcome board
         board = Cafe('loveclimb').board(url=WELCOME_BOARD_URL)
@@ -264,7 +271,6 @@ class BoardArticlesTestCase(unittest.TestCase):
     #    pass
 
 
-
 class ArticleTestCase(unittest.TestCase):
     def test_should_have_url(self):
         # only url: ok
@@ -273,9 +279,6 @@ class ArticleTestCase(unittest.TestCase):
         # only name: not ok
         with nt.assert_raises(Exception):
             Article(title=u'0704 이대')
-
-    def test_should_have_parent_board(self):
-        nt.ok_(False)
 
     def test_date_should_return_either_datetime_or_date(self):
         nt.ok_(False)

@@ -11,6 +11,17 @@ ARTICLE_TIMEOUTS = [15,30,60]
 
 RECENT_REQUESTS = []
 
+__all__ = '''
+    ARTICLE_TIMEOUTS
+    RECENT_REQUESTS
+    delayed_request
+    urlopen
+    urlread
+    get_encoding_from_header
+    get_domain
+    unescape
+'''.split()
+
 def delayed_request(url, data, timeout):
     '''daum suspects an attack if request is too frequent. sleep.'''
     global RECENT_REQUESTS

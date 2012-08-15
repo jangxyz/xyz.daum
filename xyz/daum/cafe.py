@@ -4,6 +4,7 @@
 from collections import namedtuple
 from datetime import datetime, date
 import urllib
+import urlparse
 
 import lxml.html
 
@@ -395,7 +396,7 @@ class Board:
         return self.__articles
 
     def __repr__(self):
-        return u"<%(name)s>" % self.__dict__
+        return "<%s>" % self.name.encode('utf8')
 
 
 class Article:
@@ -437,7 +438,7 @@ class Article:
         return hash((self.url, self.fldid, self.grpid, self.raw_date, self.title, self.content, self.nickname))
 
     def __repr__(self):
-        return "<%s>" % self.title.encode('utf8')
+        return "<%s,%s>" % (self.title.encode('utf8'), self.raw_date.encode('utf8'))
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
@@ -459,6 +460,8 @@ class Comment:
             self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
         return self.__date
 
+    def __repr__(self):
+        return (u"<%s,%s,%s>" % (self.content, self.nickname, self.raw_date)).encode('utf8')
 
 
 # vim: sts=4 et
