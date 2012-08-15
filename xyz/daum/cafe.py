@@ -316,7 +316,7 @@ def parse_comments_from_article_album_view(url, text=None):
         nickname=c.cssselect('.id_admin span a')[0].text.strip(),
         content ="\n".join(c.cssselect('.comment_contents')[0].itertext()).strip(),
         date    =c.cssselect('.comment_date')[0].text.strip(),
-    ) for c in comments]
+    ) for c in comments if c.text != u'삭제된 댓글 입니다.']
     return comments
 
 
@@ -374,7 +374,7 @@ class Board:
         self.__grpid = self.__grpid or self.articles[0].grpid
         return self.__grpid
 
-    def fetch(self):
+    def fetch(self, **options):
         if self.category in ('icon_phone', 'icon_album'):
             articles = parse_article_album_list(self.url)
             articles = [Article(a.url, a.title, a.post_date, a.author, fldid=a.fldid, grpid=a.grpid, board=self) for a in articles]
@@ -387,13 +387,15 @@ class Board:
         else:
             articles = parse_article_board_list(self.url)
             articles = [Article(a.url, a.title, a.post_date, a.author, board=self) for a in articles]
-        self.__articles = articles
         return articles
+
+    def fetch_articles(self, **options):
+        return self.fetch(**options)
 
     @property
     def articles(self):
         if self.__articles is None:
-            self.fetch()
+            self.__articles = self.fetch_articles()
         return self.__articles
 
     def __repr__(self):
@@ -417,22 +419,14 @@ class Article:
         self.grpid = grpid
         self.board = board
 
-    @property
-    def date(self):
+    def get_date(self):
         '''returns either datetime.datetime if fully fetched, or 
         datetime.datetime instance if not.
         '''
         if self.__date is None or not isinstance(self.__date, datetime):
-            try:
-                self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
-            except ValueError:
-                try:
-                    self.__date = datetime.strptime(self.raw_date, "%y.%m.%d").date()
-                except ValueError:
-                    today = datetime.today().date()
-                    time  = datetime.strptime(self.raw_date, "%H:%M").time()
-                    self.__date = datetime.combine(today, time)
+            self.__date = parse_date(self.raw_date)
         return self.__date
+    date = property(get_date)
 
     @property
     def comments(self):
@@ -452,6 +446,19 @@ class Article:
         return False
 
 
+def parse_date(raw_date):
+    '''try parsing raw date string, and return either datetime.datetime or datetime.date. '''
+    try:
+        return datetime.strptime(raw_date, "%y.%m.%d. %H:%M")
+    except ValueError:
+        try:
+            return datetime.strptime(raw_date, "%y.%m.%d").date()
+        except ValueError:
+            today = datetime.today().date()
+            time  = datetime.strptime(raw_date, "%H:%M").time()
+            return datetime.combine(today, time)
+
+
 class Comment:
     def __init__(self, nickname, content, date):
         self.nickname = nickname
@@ -459,12 +466,11 @@ class Comment:
         self.raw_date = date
         self.__date = None
 
-    @property
-    def date(self):
-        '''12.07.05. 10:21'''
-        if self.__date is None:
-            self.__date = datetime.strptime(self.raw_date, "%y.%m.%d. %H:%M")
+    def get_date(self):
+        if self.__date is None or not isinstance(self.__date, datetime):
+            self.__date = parse_date(self.raw_date)
         return self.__date
+    date = property(get_date)
 
     def __repr__(self):
         return (u"<%s,%s,%s>" % (self.content, self.nickname, self.raw_date)).encode('utf8')

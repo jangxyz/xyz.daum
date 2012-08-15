@@ -6,6 +6,7 @@ import htmlentitydefs
 import re
 import datetime
 import time
+import sys
 
 ARTICLE_TIMEOUTS = [15,30,60]
 
@@ -32,7 +33,7 @@ def delayed_request(url, data, timeout):
     if len(RECENT_REQUESTS) is AMOUNT:
         dt = datetime.datetime.now() - RECENT_REQUESTS[0] 
         if dt.seconds < PERIOD:
-            print 'sleeping for', PERIOD - dt.seconds, '...'
+            sys.stderr.write('sleeping for %d ...\n' % (PERIOD - dt.seconds))
             time.sleep(PERIOD - dt.seconds)
 
     req  = urllib2.Request(url)

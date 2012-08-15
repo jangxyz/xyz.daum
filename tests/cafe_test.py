@@ -45,6 +45,7 @@ boardoneline_html     = open('tests/mock/board_oneline.html').read().decode('euc
 boardalbum_html       = open('tests/mock/board_album.html').read().decode('euckr')
 articleclubalbum_html = open('tests/mock/article_clubalbum.html').read().decode('euckr')
 articlewelcome_html   = open('tests/mock/article_welcome.html').read().decode('euckr')
+deleted_comment_html  = open('tests/mock/article_deleted_comment.html').read().decode('euckr')
 
 CLUBALBUM_BOARD_URL   = 'http://cafe986.daum.net/_c21_/album_list?grpid=ccJT&fldid=_album'
 CLUBALBUM_ARTICLE_URL = 'http://cafe986.daum.net/_c21_/album_read?grpid=ccJT&fldid=_album&page=1&prev_page=0&firstbbsdepth=&lastbbsdepth=zzzzzzzzzzzzzzzzzzzzzzzzzzzzzz&contentval=001EWzzzzzzzzzzzzzzzzzzzzzzzzz&datanum=4744&edge=&listnum=15'
@@ -362,6 +363,12 @@ class ArticleCommentsTestCase(unittest.TestCase):
         nt.eq_(comment.nickname, u'도초강(강세원)')
         nt.eq_(comment.date, datetime(2012, 7, 7, 23, 24))
         nt.eq_(comment.content, u'현재 주말반은 마감이 된 상태이구요. 8월반은 7월 23일 저녂쯤  모집 공지 올라갑니다. 토, 일 이틀간 수업을 다 들으실 분만 가능합니다. 이틀 중 하루만 듣는다고해서 가격적 혜택을 드리진 않습니다. ^^')
+
+    @mock.patch('xyz.daum.cafe.urlread', side_effect=lambda *args, **kwargs: deleted_comment_html)
+    def test_should_ignore_deleted_comment(self, urlread_):
+        article = Article(url=WELCOME_ARTICLE_URL)
+
+        nt.eq_(len(article.comments), 1)
 
 
 #class CommentsTestCase(unittest.TestCase):
