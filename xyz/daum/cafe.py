@@ -426,7 +426,13 @@ class Article:
         if self.__date is None or not isinstance(self.__date, datetime):
             self.__date = parse_date(self.raw_date)
         return self.__date
-    date = property(get_date)
+
+    def set_date(self, dt):
+        # TODO: distinguish between datetime, date, and string/unicode
+        self.__date = dt
+        self.raw_date = None
+
+    date = property(get_date, set_date)
 
     @property
     def comments(self):
